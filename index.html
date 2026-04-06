@@ -651,12 +651,12 @@ textarea.manual-names:focus { border-color: var(--teal); }
 
     <div class="add-prize-row">
       <div class="section-label">Add New Prize</div>
-      <div class="add-prize-inputs">
-        <input class="input-name" id="prize-input" placeholder="Prize name…" />
-        <input class="input-count" id="prize-count" type="number" min="1" value="1" placeholder="#" title="Number of winners" />
-        <button class="add-btn" onclick="addPrize()">Add</button>
+      <input class="input-name" id="prize-input" placeholder="Prize name…" style="width:100%;margin-bottom:6px;" />
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input class="input-count" id="prize-count" type="number" min="1" value="1" placeholder="# winners" title="Number of winners" style="flex:1;" />
+        <button class="add-btn" onclick="addPrize()" style="flex:2;">+ Add Prize</button>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px;">Winner count: how many names to draw for this prize</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Winner count: how many names to draw for this prize</div>
     </div>
 
     <button class="reset-all-btn" onclick="resetAll()">Reset All Winners</button>
