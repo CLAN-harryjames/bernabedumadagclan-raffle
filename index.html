@@ -133,6 +133,7 @@ canvas#wheel {
 }
 .prize-item.collapsed { display: none; }
 .prize-item.done { border-color: rgba(102,187,106,0.4); background: #f9fff9; }
+.prize-item.special { border-left: 3px solid var(--gold); background: linear-gradient(to right, rgba(253,184,19,0.05), white); }
 
 .prize-header { display: flex; align-items: center; gap: 8px; }
 
@@ -652,10 +653,15 @@ textarea.manual-names:focus { border-color: var(--teal); }
     <div class="add-prize-row">
       <div class="section-label">Add New Prize</div>
       <input class="input-name" id="prize-input" placeholder="Prize name…" style="width:100%;margin-bottom:6px;" />
-      <div style="display:flex;gap:6px;align-items:center;">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
         <input class="input-count" id="prize-count" type="number" min="1" value="1" placeholder="# winners" title="Number of winners" style="flex:1;" />
         <button class="add-btn" onclick="addPrize()" style="flex:2;">+ Add Prize</button>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 10px;background:rgba(253,184,19,0.08);border:1px solid rgba(253,184,19,0.3);border-radius:8px;">
+        <input type="checkbox" id="prize-is-special" style="accent-color:#FDB813;width:15px;height:15px;" />
+        <span style="font-size:12px;font-weight:600;color:var(--navy);">⭐ Special Raffle prize</span>
+        <span style="font-size:11px;color:var(--muted);margin-left:auto;">uses Special list</span>
+      </label>
       <div style="font-size:11px;color:var(--muted);margin-top:4px;">Winner count: how many names to draw for this prize</div>
     </div>
 
@@ -851,17 +857,18 @@ function renderPrizes() {
     `).join('');
 
     return `
-      <div class="prize-item ${isActive ? 'active' : ''} ${collapsed ? 'collapsed' : ''} ${done ? 'done' : ''}"
+      <div class="prize-item ${isActive ? 'active' : ''} ${collapsed ? 'collapsed' : ''} ${done ? 'done' : ''} ${p.isSpecial ? 'special' : ''}"
            id="prize-item-${i}" onclick="selectPrize(${i})">
         <div class="prize-header">
           <div class="prize-num ${done ? 'done-num' : ''}">${done ? '✓' : i+1}</div>
           <div class="prize-name-text">${p.name}</div>
+          ${p.isSpecial ? `<span style="font-size:10px;background:#FDB813;color:#1A237E;font-weight:700;border-radius:20px;padding:2px 7px;letter-spacing:0.5px;flex-shrink:0;">⭐ SPECIAL</span>` : ''}
           <div class="prize-count-badge ${done ? 'done' : ''}">${p.winners.length}/${p.maxWinners}</div>
         </div>
         ${p.winners.length > 0 ? `<div class="prize-winners-list">${winnersHtml}</div>` : ''}
         <div class="prize-actions">
           <button class="action-btn btn-edit" onclick="event.stopPropagation();startEdit(${i})">Edit</button>
-          <button class="action-btn btn-raffle ${done ? '' : ''}" onclick="event.stopPropagation();startRaffle(${i})" ${done ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>
+          <button class="action-btn btn-raffle" onclick="event.stopPropagation();startRaffle(${i})" ${done ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>
             ${done ? '✓ Done' : 'Raffle Now'}
           </button>
           <button class="action-btn btn-del" onclick="event.stopPropagation();deletePrize(${i})">Delete</button>
@@ -869,8 +876,14 @@ function renderPrizes() {
         <div class="prize-edit-row" id="edit-row-${i}" onclick="event.stopPropagation()">
           <input class="edit-input" id="edit-name-${i}" value="${p.name}" placeholder="Prize name" />
           <input class="edit-winners-input" id="edit-count-${i}" type="number" min="1" value="${p.maxWinners}" />
-          <button class="action-btn btn-save" onclick="saveEdit(${i})">Save</button>
-          <button class="action-btn btn-cancel" onclick="cancelEdit(${i})">✕</button>
+          <label style="width:100%;display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 8px;background:rgba(253,184,19,0.08);border:1px solid rgba(253,184,19,0.25);border-radius:7px;margin-top:2px;">
+            <input type="checkbox" id="edit-special-${i}" ${p.isSpecial ? 'checked' : ''} style="accent-color:#FDB813;width:14px;height:14px;" />
+            <span style="font-size:11px;font-weight:600;color:var(--navy);">⭐ Special Raffle prize</span>
+          </label>
+          <div style="display:flex;gap:6px;margin-top:2px;width:100%;">
+            <button class="action-btn btn-save" onclick="saveEdit(${i})" style="flex:1;">Save</button>
+            <button class="action-btn btn-cancel" onclick="cancelEdit(${i})" style="flex:1;">✕ Cancel</button>
+          </div>
         </div>
       </div>
     `;
@@ -880,12 +893,14 @@ function renderPrizes() {
 function addPrize() {
   const nameInp = document.getElementById('prize-input');
   const countInp = document.getElementById('prize-count');
+  const isSpecial = document.getElementById('prize-is-special').checked;
   const name = nameInp.value.trim();
   if (!name) return;
   const maxWinners = Math.max(1, parseInt(countInp.value) || 1);
-  prizes.push({ name, maxWinners, winners: [] });
+  prizes.push({ name, maxWinners, winners: [], isSpecial });
   nameInp.value = '';
   countInp.value = 1;
+  document.getElementById('prize-is-special').checked = false;
   renderPrizes();
   save();
 }
@@ -907,12 +922,16 @@ function selectPrize(i) {
   }
   activePrizeIdx = i;
   renderPrizes();
-  // show spin button
   document.getElementById('spin-btn').style.display = 'block';
   document.getElementById('no-prize-hint').style.display = 'none';
   const sf = document.getElementById('spinning-for');
-  sf.textContent = '🏆 ' + prizes[i].name;
+  const prize = prizes[i];
+  const typeLabel = prize.isSpecial ? '⭐ Special: ' : '🏆 ';
+  sf.textContent = typeLabel + prize.name;
+  sf.style.background = prize.isSpecial ? '#1A237E' : 'var(--gold)';
+  sf.style.color = prize.isSpecial ? '#FDB813' : 'var(--navy)';
   sf.classList.add('show');
+  drawWheel();
 }
 
 function deselect() {
@@ -932,9 +951,11 @@ function startEdit(i) {
 function saveEdit(i) {
   const name = document.getElementById(`edit-name-${i}`).value.trim();
   const count = Math.max(1, parseInt(document.getElementById(`edit-count-${i}`).value) || 1);
+  const isSpecial = document.getElementById(`edit-special-${i}`).checked;
   if (!name) return;
   prizes[i].name = name;
   prizes[i].maxWinners = count;
+  prizes[i].isSpecial = isSpecial;
   renderPrizes();
   save();
 }
@@ -992,6 +1013,11 @@ function toggleExclude(name) {
 }
 
 function getWheelNames() {
+  // If the currently selected prize is special, use the special names list
+  if (activePrizeIdx !== null && prizes[activePrizeIdx]?.isSpecial) {
+    return specialNames.length > 0 ? [...specialNames] : attendees.filter(n => !excluded.has(n));
+  }
+  // Regular prize or no prize selected — use attendees
   if (useSpecial && specialNames.length > 0) return [...specialNames];
   return attendees.filter(n => !excluded.has(n));
 }
